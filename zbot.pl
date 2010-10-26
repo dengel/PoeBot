@@ -16,13 +16,15 @@ use POE::Component::Schedule;
 use POE::Component::IRC;
 use DateTime::Set;
 
-sub DEBUG ()   { 1 }
+sub DEBUG ()   { 0 }
 sub VERSION () { 0.1 }
 sub CHANNEL () { "#zbot" }
 
 my %modules;
+my %ignore;
 my %users;
 my $modfile = "/home/dane/zson/modules.conf";
+my $ignfile = "/home/dane/zson/ignore.conf";
 my $usrfile = "/home/dane/zson/users.conf";
 
 # Create the component that will represent an IRC network.
@@ -35,7 +37,6 @@ POE::Session->create(
         _start     => \&bot_start,
         irc_001    => \&on_connect,
         irc_public => \&on_public,
-        irc_ping   => \&on_ping,
         Tick       => \&on_tick,
         _stop      => \&bot_stop,
     },
@@ -107,6 +108,9 @@ sub on_public {
         }
     }
 
+    # Check for ignore list
+    return if ($ignore{$nick});
+
     # Zbot built-in commands.
 
     if ($cmd =~ /^\!die/) {
@@ -117,6 +121,10 @@ sub on_public {
         $irc->yield(privmsg => CHANNEL, "Version: " . VERSION);
     }
 
+    if ($cmd =~ /^\!nick/) {
+        $irc->yield(nick => $bot_arg);
+    }
+
     if ($cmd =~ /^\!reload/) {
         &modload();
         &usrload();
@@ -124,15 +132,22 @@ sub on_public {
     }
 
     if ($cmd =~ /^\!ignore/) {
-        $irc->yield(privmsg => CHANNEL, "Not implemented.");
+        $irc->yield(privmsg => CHANNEL, "Ignoring: $bot_arg");
+        $ignore{$bot_arg} = 1;
     }
 
     if ($cmd =~ /^\!unignore/) {
-        $irc->yield(privmsg => CHANNEL, "Not implemented.");
+        $irc->yield(privmsg => CHANNEL, "Ungnoring: $bot_arg");
+        delete $ignore{$bot_arg};
     }
 
     if ($cmd =~ /^\!iglist/) {
-        $irc->yield(privmsg => CHANNEL, "Not implemented.");
+        my $buffer = "Ignoring ->";
+        foreach my $nick (keys %ignore) {
+            $buffer.=" $nick -";
+        }
+        chop($buffer);
+        $irc->yield(privmsg => CHANNEL, $buffer);
     }
 
     if ($cmd =~ /^\!userlist/) {
@@ -169,14 +184,8 @@ sub on_public {
 # Schedule
 
 sub on_tick {
-    my $timer = 'Timer: '. scalar localtime, "\n";
+    my $timer = 'Timer: ' . scalar localtime, "\n";
     $irc->yield(privmsg => CHANNEL, $timer);
-}
-
-sub on_ping {
-    my $timer = 'Ping: '. scalar localtime, "\n";
-    $irc->yield(privmsg => CHANNEL, $timer);
-    print "D: Ping!\n";
 }
 
 # Custom
@@ -212,6 +221,21 @@ sub usrload {
             print "*** Reg user: $nick\t($level)\n";
         }
         close(UFILE);
+    }
+}
+
+sub ignload {
+    if ( -f $ignfile ) {
+        %ignore = ();
+        my($nick);
+        open (IFILE, "< $ignfile");
+        while (<IFILE>) {
+            next if (/^#/);
+            chomp($_);
+            $ignore{$nick} = 1;
+            print "*** Ign user: $nick\n";
+        }
+        close(IFILE);
     }
 }
 
