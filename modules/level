@@ -1,0 +1,2 @@
+#!/bin/sh
+echo "Level for ${ZBOT_USER}: ${ZBOT_PERM}"
