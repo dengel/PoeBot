@@ -14,12 +14,15 @@ use strict;
 use POE;
 use POE::Component::Schedule;
 use POE::Component::IRC;
+
+use File::Basename;
+use Cwd 'abs_path';
 use DateTime::Set;
 
 # Bot configuration
 sub DEBUG   () { 0 }
-sub VERSION () { 0.1 }
-sub NICK    () { "zbut" }
+sub VERSION () { 0.5 }
+sub NICK    () { "Zbotito" }
 sub USERNAME() { "poe" }
 sub USERINFO() { "Zbot + POE" }
 sub SERVER  () { "z.shopo.cl" }
@@ -36,6 +39,7 @@ my %commands = (
     '!die'       => \&cmd_die,
     '!version'   => \&cmd_version,
     '!talk'      => \&cmd_talk,
+    '!say'       => \&cmd_talk,
     '!nick'      => \&cmd_nick,
     '!reload'    => \&cmd_reload,
     '!ignore'    => \&cmd_ignore,
@@ -51,9 +55,10 @@ my %commands = (
 my %modules;
 my %ignore;
 my %users;
-my $modfile = "/home/dane/zson/modules.conf";
-my $ignfile = "/home/dane/zson/ignore.conf";
-my $usrfile = "/home/dane/zson/users.conf";
+my $bot_path;
+my $modfile;
+my $ignfile;
+my $usrfile;
 
 # Create the component that will represent an IRC network.
 my ($irc) = POE::Component::IRC->spawn();
@@ -96,7 +101,16 @@ sub bot_start {
             Port     => PORT,
         }
     );
+
+    # Convention over configuration.
+    $bot_path = abs_path(dirname(__FILE__));
+    $modfile  = $bot_path . "/modules.conf";
+    $ignfile  = $bot_path . "/ignore.conf";
+    $usrfile  = $bot_path . "/users.conf";
+
+    # Load initial files.
     &usrload();
+    &ignload();
     &modload();
 }
 
@@ -194,8 +208,9 @@ sub cmd_nick {
 sub cmd_reload {
     my ($nick, $channel, $cmd, $bot_arg) = @_ ;
     return if $users{$nick} < LVL_ADMIN ;
-    &modload();
     &usrload();
+    &ignload();
+    &modload();
     $irc->yield(privmsg => CHANNEL, "Module and User configurations reloaded");
 }
 
