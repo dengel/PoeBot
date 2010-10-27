@@ -22,7 +22,7 @@ use DateTime::Set;
 # Bot configuration
 sub DEBUG   () { 0 }
 sub VERSION () { 0.5 }
-sub NICK    () { "Zbotito" }
+sub NICK    () { "ZPoe" }
 sub USERNAME() { "poe" }
 sub USERINFO() { "Zbot + POE" }
 sub SERVER  () { "z.shopo.cl" }
@@ -315,11 +315,12 @@ sub usrload {
 sub ignload {
     if ( -f $ignfile ) {
         %ignore = ();
-        my($nick);
+        my $nick;
         open (IFILE, "< $ignfile");
         while (<IFILE>) {
             next if (/^#/);
-            chomp($_);
+            $nick = $_;
+            chomp($nick);
             $ignore{$nick} = 1;
             print "*** Ign user: $nick\n";
         }
