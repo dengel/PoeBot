@@ -16,10 +16,38 @@ use POE::Component::Schedule;
 use POE::Component::IRC;
 use DateTime::Set;
 
-sub DEBUG ()   { 0 }
+# Bot configuration
+sub DEBUG   () { 0 }
 sub VERSION () { 0.1 }
+sub NICK    () { "zbut" }
+sub USERNAME() { "poe" }
+sub USERINFO() { "Zbot + POE" }
+sub SERVER  () { "z.shopo.cl" }
+sub PORT    () { "6667" }
 sub CHANNEL () { "#zbot" }
 
+# Level configuration
+sub LVL_ADMIN () { 100 }
+sub LVL_OPER  () {  50 }
+sub LVL_TECH  () {  25 }
+
+# Command list
+my %commands = (
+    '!die'       => \&cmd_die,
+    '!version'   => \&cmd_version,
+    '!talk'      => \&cmd_talk,
+    '!nick'      => \&cmd_nick,
+    '!reload'    => \&cmd_reload,
+    '!ignore'    => \&cmd_ignore,
+    '!unignore'  => \&cmd_unignore,
+    '!igclear'   => \&cmd_igclear,
+    '!iglist'    => \&cmd_iglist,
+    '!usrlist'   => \&cmd_usrlist,
+    '!modlist'   => \&cmd_modlist,
+    '!cmdlist'   => \&cmd_cmdlist,
+);
+
+# Global variables
 my %modules;
 my %ignore;
 my %users;
@@ -35,10 +63,10 @@ my ($irc) = POE::Component::IRC->spawn();
 POE::Session->create(
     inline_states => {
         _start     => \&bot_start,
+        _stop      => \&bot_stop,
         irc_001    => \&on_connect,
         irc_public => \&on_public,
         Tick       => \&on_tick,
-        _stop      => \&bot_stop,
     },
 );
 
@@ -61,15 +89,15 @@ sub bot_start {
     $irc->yield(register => "all");
     $irc->yield(
         connect => {
-            Nick     => 'Zbat',
-            Username => 'poe',
-            Ircname  => 'Rigo Sux!',
-            Server   => 'z.shopo.cl',
-            Port     => '6667',
+            Nick     => NICK,
+            Username => USERNAME,
+            Ircname  => USERINFO,
+            Server   => SERVER,
+            Port     => PORT,
         }
     );
-    usrload();
-    modload();
+    &usrload();
+    &modload();
 }
 
 sub bot_stop {
@@ -111,61 +139,9 @@ sub on_public {
     # Check for ignore list
     return if ($ignore{$nick});
 
-    # Zbot built-in commands.
-
-    if ($cmd =~ /^\!die/) {
-        bot_stop();
-    }
-
-    if ($cmd =~ /^\!version/) {
-        $irc->yield(privmsg => CHANNEL, "Version: " . VERSION);
-    }
-
-    if ($cmd =~ /^\!nick/) {
-        $irc->yield(nick => $bot_arg);
-    }
-
-    if ($cmd =~ /^\!reload/) {
-        &modload();
-        &usrload();
-        $irc->yield(privmsg => CHANNEL, "Module and User configurations reloaded");
-    }
-
-    if ($cmd =~ /^\!ignore/) {
-        $irc->yield(privmsg => CHANNEL, "Ignoring: $bot_arg");
-        $ignore{$bot_arg} = 1;
-    }
-
-    if ($cmd =~ /^\!unignore/) {
-        $irc->yield(privmsg => CHANNEL, "Ungnoring: $bot_arg");
-        delete $ignore{$bot_arg};
-    }
-
-    if ($cmd =~ /^\!iglist/) {
-        my $buffer = "Ignoring ->";
-        foreach my $nick (keys %ignore) {
-            $buffer.=" $nick -";
-        }
-        chop($buffer);
-        $irc->yield(privmsg => CHANNEL, $buffer);
-    }
-
-    if ($cmd =~ /^\!userlist/) {
-        my $buffer = "Levels ->";
-        foreach my $nick (keys %users) {
-            $buffer.=" $nick ($users{$nick}) -";
-        }
-        chop($buffer);
-        $irc->yield(privmsg => CHANNEL, $buffer);
-    }
-
-    if ($cmd =~ /^\!modlist/) {
-        my $buffer = "Modules ->";
-        foreach my $module (keys %modules) {
-            $buffer.=" $module -";
-        }
-        chop($buffer);
-        $irc->yield(privmsg => CHANNEL, $buffer);
+    # Zbot internal commands.
+    if ( $commands{$cmd} ) {
+           &{$commands{$cmd}}($nick, $channel, $cmd, $bot_arg);
     }
 
     # Zbot external module commands.
@@ -184,8 +160,105 @@ sub on_public {
 # Schedule
 
 sub on_tick {
-    my $timer = 'Timer: ' . scalar localtime, "\n";
+    my $timer = 'Timer: ' . scalar localtime;
     $irc->yield(privmsg => CHANNEL, $timer);
+}
+
+#
+# Commands 
+#
+
+sub cmd_die {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    return if $users{$nick} < LVL_ADMIN ;
+    bot_stop();
+}
+
+sub cmd_version {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    $irc->yield(privmsg => CHANNEL, "Version: " . VERSION);
+}
+
+sub cmd_talk {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    return if $users{$nick} < LVL_OPER ;
+    $irc->yield(privmsg => CHANNEL, $bot_arg);
+}
+
+sub cmd_nick {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    return if $users{$nick} < LVL_ADMIN ;
+    $irc->yield(nick => $bot_arg);
+}
+
+sub cmd_reload {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    return if $users{$nick} < LVL_ADMIN ;
+    &modload();
+    &usrload();
+    $irc->yield(privmsg => CHANNEL, "Module and User configurations reloaded");
+}
+
+sub cmd_ignore {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    return if $users{$nick} < LVL_TECH ;
+    $irc->yield(privmsg => CHANNEL, "Ignoring: $bot_arg");
+    $ignore{$bot_arg} = 1;
+}
+
+sub cmd_unignore {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    return if $users{$nick} < LVL_TECH ;
+    $irc->yield(privmsg => CHANNEL, "Ungnoring: $bot_arg");
+    delete $ignore{$bot_arg};
+}
+
+sub cmd_igclear {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    return if $users{$nick} < LVL_TECH ;
+    $irc->yield(privmsg => CHANNEL, "Ignore list cleared.");
+    %ignore = ();
+}
+
+sub cmd_iglist {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    my $buffer = "Ignoring ->";
+    foreach my $nick (keys %ignore) {
+        $buffer.=" $nick -";
+    }
+    chop($buffer);
+    $irc->yield(privmsg => CHANNEL, $buffer);
+}
+
+sub cmd_usrlist {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    return if $users{$nick} < LVL_ADMIN ;
+    my $buffer = "Levels ->";
+    foreach my $nick (keys %users) {
+        $buffer.=" $nick ($users{$nick}) -";
+    }
+    chop($buffer);
+    $irc->yield(privmsg => $nick, $buffer);
+}
+
+sub cmd_modlist {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    my $buffer = "Modules ->";
+    foreach my $module (keys %modules) {
+        $buffer.=" $module -";
+    }
+    chop($buffer);
+    $irc->yield(privmsg => CHANNEL, $buffer);
+}
+
+sub cmd_cmdlist {
+    my ($nick, $channel, $cmd, $bot_arg) = @_ ;
+    my $buffer = "Commands ->";
+    foreach my $command (keys %commands) {
+        $buffer.=" $command -";
+    }
+    chop($buffer);
+    $irc->yield(privmsg => CHANNEL, $buffer);
 }
 
 # Custom
