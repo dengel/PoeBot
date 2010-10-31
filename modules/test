@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+#
+use warnings;
+use strict;
+use File::Basename;
+
+my $numArgs = $#ARGV + 1;
+
+my $prog = basename(__FILE__);
+
+my $output="Got $numArgs args: $prog ";
+
+foreach my $argnum (0 .. $#ARGV) {
+
+   $output .=  "[$ARGV[$argnum]]";
+
+}
+
+print "$output \n";

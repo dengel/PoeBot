@@ -162,6 +162,11 @@ sub on_public {
         $ENV{ZBOT_NICK} = $irc->nick_name;
         $ENV{ZBOT_USER} = $nick;
         $ENV{ZBOT_PERM} = $users{$nick} ? $users{$nick} : 0;
+        $bot_arg =~ s/;/ /g;   # Remove any command join operators.
+        $bot_arg =~ s/&&/ /g;  # Remove any command AND  operators.
+        $bot_arg =~ s/||/ /g;  # Remove any command OR   operators.
+
+        # Run the module, output to channel.
         my @output=`$modules{$cmd} $bot_arg`;
         foreach (@output) {
             $irc->yield(privmsg => CHANNEL, $_);
@@ -280,6 +285,9 @@ sub confload {
     &modload();
 }
 
+# 
+# Load the module configuration file
+#
 sub modload {
     if ( -f $modfile ) {
         %modules = ();
@@ -290,13 +298,32 @@ sub modload {
             my ($command, $path) = split(":",$_);
             chomp($command);
             chomp($path);
-            $modules{$command} = $path;
-            print "*** Reg module: $command\t($path)\n";
+
+            # Add to relative paths.
+            if ( $path !~ /^\//) {
+                $path = $bot_path . "/" . $path ;
+            }
+
+            # Some validation on modules.
+            if (! -x $path) {
+                print "*** Bad module: $command\t($path)\n";
+            } else {
+                if ($modules{$command} ) {
+                    print "*** Dup module: $command\t($path)\n";
+                } else {
+                    # All good... add module.
+                    $modules{$command} = $path;
+                    print "*** Reg module: $command\t($path)\n";
+                }
+            }
         }
         close(MFILE);
     }
 }
 
+# 
+# Load the user configuration file
+#
 sub usrload {
     if ( -f $usrfile ) {
         %users = ();
@@ -314,6 +341,9 @@ sub usrload {
     }
 }
 
+# 
+# Load the ignore configuration file
+#
 sub ignload {
     if ( -f $ignfile ) {
         %ignore = ();
