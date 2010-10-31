@@ -109,9 +109,7 @@ sub bot_start {
     $usrfile  = $bot_path . "/users.conf";
 
     # Load initial files.
-    &usrload();
-    &ignload();
-    &modload();
+    &confload();
 }
 
 sub bot_stop {
@@ -208,9 +206,7 @@ sub cmd_nick {
 sub cmd_reload {
     my ($nick, $channel, $cmd, $bot_arg) = @_ ;
     return if $users{$nick} < LVL_ADMIN ;
-    &usrload();
-    &ignload();
-    &modload();
+    &confload();
     $irc->yield(privmsg => CHANNEL, "Module and User configurations reloaded");
 }
 
@@ -277,6 +273,12 @@ sub cmd_cmdlist {
 }
 
 # Custom
+
+sub confload {
+    &usrload();
+    &ignload();
+    &modload();
+}
 
 sub modload {
     if ( -f $modfile ) {
