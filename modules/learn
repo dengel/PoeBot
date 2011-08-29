@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+#
+# Daniel Engel 2011
+#
+#
+use warnings;
+use strict;
+
+use DBI;
+use MIME::Base64;
+use feature ":5.10";
+
+my $debug = 1;
+
+exit(0) if ($#ARGV != 0);
+
+my $payload = $ARGV[0];
+chomp($payload);
+
+my $request = decode_base64($payload);
+chomp($request);
+
+print "Encoded: $payload \n" if $debug;
+print "Decoded: $request \n" if $debug;
+
+my ($author, $command, $rest) = split /[:\s]+/, $request, 3;
+
+print "Author : $author\n"  if $debug;
+print "Command: $command\n" if $debug;
+print "Rest   : $rest\n"    if $debug;
+
+sub itest {                                                                                            
+    my ($author, $all) = @_;                                               
+    return $all;
+}
+
+sub learn {                                                                                            
+    my ($author, $all) = @_;                                               
+    my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
+    print "Value: $value Meaning: $meaning \n";
+    if (( $value ) and ( $meaning )) {
+        my $dbh = DBI->connect("dbi:SQLite:dbname=../db/linux.db","","");
+        my $res = $dbh->do("insert into `def_linux` (value, meaning, author, date) values ('$value', '$meaning', '$author', date('now'))");
+        undef($dbh);
+        if ( $res ) {
+            return ("Defined $value = $meaning");
+        } else {
+            return ("Unable to define");
+        }
+    }
+    return undef;
+}
+
+my $out="broken";
+
+given ($command) {
+    when (/\!learn/) { $out = learn($author, $rest); }
+    when (/\!test/)  { $out = itest($author, $rest); }
+    default          { $out = "Unknown command $command"; }
+}
+
+print "*** $out \n";
