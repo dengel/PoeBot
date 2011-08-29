@@ -18,10 +18,11 @@ use POE::Component::IRC;
 use File::Basename;
 use Cwd 'abs_path';
 use DateTime::Set;
+use MIME::Base64;
 
 # Bot configuration
 sub DEBUG   () { 0 }
-sub VERSION () { 0.5 }
+sub VERSION () { 0.6 }
 sub NICK    () { "ZPoe" }
 sub USERNAME() { "poe" }
 sub USERINFO() { "Zbot + POE" }
@@ -162,6 +163,7 @@ sub on_public {
         $ENV{ZBOT_NICK} = $irc->nick_name;
         $ENV{ZBOT_USER} = $nick;
         $ENV{ZBOT_PERM} = $users{$nick} ? $users{$nick} : 0;
+        $ENV{ZBOT_ARGS} = "$who $cmd $bot_arg";
         $bot_arg =~ s/;/ /g;   # Remove any command join operators.
         $bot_arg =~ s/&&/ /g;  # Remove any command AND  operators.
         $bot_arg =~ s/||/ /g;  # Remove any command OR   operators.

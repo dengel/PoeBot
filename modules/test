@@ -2,6 +2,7 @@
 #
 use warnings;
 use strict;
+use Env;
 use File::Basename;
 
 my $numArgs = $#ARGV + 1;
@@ -15,5 +16,6 @@ foreach my $argnum (0 .. $#ARGV) {
    $output .=  "[$ARGV[$argnum]]";
 
 }
+my $test="";
+print "$output ($ZBOT_ARGS) {$test}\n";
 
-print "$output \n";

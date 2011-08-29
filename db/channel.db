@@ -1,4 +1,4 @@
-CREATE TABLE def_linux (
+CREATE TABLE ledger (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
   value   TEXT UNIQUE,
   meaning TEXT NOT NULL,

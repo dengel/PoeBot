@@ -6,28 +6,22 @@
 use warnings;
 use strict;
 
+use Env;
 use DBI;
 use MIME::Base64;
 use feature ":5.10";
 
-my $debug = 1;
+my $debug = 0;
+my $dbfile="/usr/apps/data/zbot_linux.db";
+my $request;
 
-exit(0) if ($#ARGV != 0);
-
-my $payload = $ARGV[0];
-chomp($payload);
-
-my $request = decode_base64($payload);
-chomp($request);
-
-print "Encoded: $payload \n" if $debug;
-print "Decoded: $request \n" if $debug;
-
-my ($author, $command, $rest) = split /[:\s]+/, $request, 3;
-
-print "Author : $author\n"  if $debug;
-print "Command: $command\n" if $debug;
-print "Rest   : $rest\n"    if $debug;
+sub query {
+	my $query = shift;
+        my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+        my $res = $dbh->do($query);
+        undef($dbh);
+	return $res;
+}
 
 sub itest {                                                                                            
     my ($author, $all) = @_;                                               
@@ -37,10 +31,9 @@ sub itest {
 sub learn {                                                                                            
     my ($author, $all) = @_;                                               
     my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
-    print "Value: $value Meaning: $meaning \n";
     if (( $value ) and ( $meaning )) {
-        my $dbh = DBI->connect("dbi:SQLite:dbname=../db/linux.db","","");
-        my $res = $dbh->do("insert into `def_linux` (value, meaning, author, date) values ('$value', '$meaning', '$author', date('now'))");
+        my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+        my $res = $dbh->do("insert into `ledger` (value, meaning, author, date) values ('$value', '$meaning', '$author', date('now'))");
         undef($dbh);
         if ( $res ) {
             return ("Defined $value = $meaning");
@@ -51,12 +44,64 @@ sub learn {
     return undef;
 }
 
+sub retrieve {
+    my ($author, $all) = @_;                                               
+    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+    my $ret="uh?";
+
+    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+
+    my $res = $dbh->selectall_arrayref("select id,meaning from `ledger` where value = \"$value\"");
+
+    if ( $res ) {
+        foreach my $row (@$res) {
+	    my ($id, $meaning) = @$row;
+	    $ret = "$value = $meaning";
+        }
+
+        $dbh->do("update `ledger` set hits = hits + 1 where value = \"$value\"");
+
+    }
+    undef($dbh);
+
+    return $ret;
+}
+
+#
+# MAIN
+#
+
+# If ran as module, use env var.
+if (exists $ENV{ZBOT_ARGS}) {
+    $request = $ZBOT_ARGS;
+} else {
+    exit(0) if ($#ARGV != 0);
+
+    my $payload = $ARGV[0];
+    chomp($payload);
+
+    $request = decode_base64($payload);
+
+    print "Encoded: $payload \n" if $debug;
+    print "Decoded: $request \n" if $debug;
+
+}
+
+chomp($request);
+
+my ($author, $command, $rest) = split /[:\s]+/, $request, 3;
+
+print "Author : $author\n"  if $debug;
+print "Command: $command\n" if $debug;
+print "Rest   : $rest\n"    if $debug;
+
 my $out="broken";
 
 given ($command) {
     when (/\!learn/) { $out = learn($author, $rest); }
-    when (/\!test/)  { $out = itest($author, $rest); }
+    when (/\!itest/) { $out = itest($author, $rest); }
+    when (/\?/)      { $out = retrieve($author, $rest); }
     default          { $out = "Unknown command $command"; }
 }
 
-print "*** $out \n";
+print $out;
