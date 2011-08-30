@@ -23,9 +23,32 @@ sub query {
 	return $res;
 }
 
+sub get_record {
+    my $value = shift;
+
+    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+    my $res = $dbh->selectrow_hashref("select * from `ledger` where value = \"$value\"");
+    return $res;
+
+}
+
 sub _itest {                                                                                            
     my ($author, $all) = @_;                                               
-    return $all;
+    my ($value) = split /[:\s]+/, $all, 1;                                               
+    my $retval="[$value]";
+
+    my $ref = get_record($value);
+    if ($ref ne undef) {
+        my %record = %{$ref};
+        foreach my $key ( keys(%record) ) {
+	    $retval .= "[$key = $record{$key}]";
+        }
+    } else {
+	    $retval .= "[404]";
+    }
+
+    return $retval;
+
 }
 
 sub _learn {                                                                                            
@@ -37,6 +60,24 @@ sub _learn {
         undef($dbh);
         if ( $res ) {
             return ("Defined $value = $meaning");
+        } else {
+            return ("Unable to define");
+        }
+    }
+    return undef;
+}
+
+sub _append {                                                                                            
+    my ($author, $all) = @_;                                               
+    my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
+    if (( $value ) and ( $meaning )) {
+        my %record = %{$ref};
+        my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+        my $res = $dbh->do("update `ledger` set meaning=(meaning || ' $meaning'\), date=date('now') where value='$value'");
+        undef($dbh);
+        if ( $res ) {
+            my $ref = get_record($value);
+            return ("Defined $value = $ref->{meaning} $meaning");
         } else {
             return ("Unable to define");
         }
@@ -177,6 +218,7 @@ my $out="broken";
 
 given ($command) {
     when (/\!learn/)  { $out = _learn($author, $rest); }
+    when (/\!append/) { $out = _append($author, $rest); }
     when (/\!forget/) { $out = _forget($author, $rest); }
     when (/\!lock/) { $out = _lock($author, $rest); }
     when (/\!unlock/) { $out = _unlock($author, $rest); }
