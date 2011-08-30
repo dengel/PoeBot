@@ -23,12 +23,12 @@ sub query {
 	return $res;
 }
 
-sub itest {                                                                                            
+sub _itest {                                                                                            
     my ($author, $all) = @_;                                               
     return $all;
 }
 
-sub learn {                                                                                            
+sub _learn {                                                                                            
     my ($author, $all) = @_;                                               
     my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
     if (( $value ) and ( $meaning )) {
@@ -44,7 +44,7 @@ sub learn {
     return undef;
 }
 
-sub retrieve {
+sub _retrieve {
     my ($author, $all) = @_;                                               
     my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
     my $ret="uh?";
@@ -61,6 +61,84 @@ sub retrieve {
 
         $dbh->do("update `ledger` set hits = hits + 1 where value = \"$value\"");
 
+    }
+    undef($dbh);
+
+    return $ret;
+}
+
+sub _forget {
+    my ($author, $all) = @_;                                               
+    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+    my $ret="uh?";
+
+    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+
+    my $res = $dbh->selectall_arrayref("select id,locked from `ledger` where value = \"$value\"");
+
+    if ( $res ) {
+        foreach my $row (@$res) {
+	    my ($id, $locked) = @$row;
+	    if ($locked) {
+		    $ret = "Unable to delete, record locked!";
+	    } else {
+		    $dbh->do("delete from `ledger` where value = \"$value\"");
+		    $ret = "Record deleted!";
+
+	    }
+        }
+    }
+    undef($dbh);
+
+    return $ret;
+}
+
+sub _lock {
+    my ($author, $all) = @_;                                               
+    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+    my $ret="uh?";
+
+    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+
+    my $res = $dbh->selectall_arrayref("select id,locked from `ledger` where value = \"$value\"");
+
+    if ( $res ) {
+        foreach my $row (@$res) {
+	    my ($id, $locked) = @$row;
+	    if ($locked) {
+		    $ret = "Already locked!";
+	    } else {
+		    $dbh->do("update `ledger` set locked = 1 where value = \"$value\"");
+		    $ret = "Record locked!";
+
+	    }
+        }
+    }
+    undef($dbh);
+
+    return $ret;
+}
+
+sub _unlock {
+    my ($author, $all) = @_;                                               
+    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+    my $ret="uh?";
+
+    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+
+    my $res = $dbh->selectall_arrayref("select id,locked from `ledger` where value = \"$value\"");
+
+    if ( $res ) {
+        foreach my $row (@$res) {
+	    my ($id, $locked) = @$row;
+	    if ($locked) {
+		    $dbh->do("update `ledger` set locked = 0 where value = \"$value\"");
+		    $ret = "Record unlocked!";
+	    } else {
+		    $ret = "Not locked!";
+
+	    }
+        }
     }
     undef($dbh);
 
@@ -98,10 +176,13 @@ print "Rest   : $rest\n"    if $debug;
 my $out="broken";
 
 given ($command) {
-    when (/\!learn/) { $out = learn($author, $rest); }
-    when (/\!itest/) { $out = itest($author, $rest); }
-    when (/\?/)      { $out = retrieve($author, $rest); }
-    default          { $out = "Unknown command $command"; }
+    when (/\!learn/)  { $out = _learn($author, $rest); }
+    when (/\!forget/) { $out = _forget($author, $rest); }
+    when (/\!lock/) { $out = _lock($author, $rest); }
+    when (/\!unlock/) { $out = _unlock($author, $rest); }
+    when (/\!itest/)  { $out = _itest($author, $rest); }
+    when (/\?/)       { $out = _retrieve($author, $rest); }
+    default           { $out = "Unknown command $command"; }
 }
 
 print $out;
