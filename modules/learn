@@ -71,7 +71,6 @@ sub _append {
     my ($author, $all) = @_;                                               
     my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
     if (( $value ) and ( $meaning )) {
-        my %record = %{$ref};
         my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
         my $res = $dbh->do("update `ledger` set meaning=(meaning || ' $meaning'\), date=date('now') where value='$value'");
         undef($dbh);
@@ -132,6 +131,46 @@ sub _forget {
     undef($dbh);
 
     return $ret;
+}
+
+sub _replace {
+    my ($author, $all) = @_;                                               
+    my ($value, $from, $to) = split /[:\s]+/, $all, 3;                                               
+
+    my $retval = "";
+    my $ref = get_record($value);
+    if ($ref ne undef) {
+        my %record = %{$ref};
+        my $meaning=$record{meaning};
+        $meaning =~ s/$from/$to/g;
+        query("update `ledger` set meaning = \"$meaning\", date=date('now') where value = \"$value\"");
+        $retval .= ("Defined $value = $meaning");
+    } else {
+        $retval .= "[404]";
+    }
+
+    return $retval;
+}
+
+sub _rename {
+    my ($author, $all) = @_;                                               
+    my ($value, $nvalue) = split /[:\s]+/, $all, 2;                                               
+
+    my $retval = "";
+    my $rif = get_record($value);
+    if (defined($rif)) {
+        my $ref = get_record($nvalue);
+        if (defined($ref)) {
+            $retval .= "Already exists $nvalue";
+        } else {
+            query("update `ledger` set value = \"$nvalue\", date=date('now') where value = \"$value\"");
+            $retval .= ("Defined $nvalue = $rif->{meaning}");
+        }
+    } else {
+        $retval .= "[404]";
+    }
+
+    return $retval;
 }
 
 sub _lock {
@@ -217,14 +256,16 @@ print "Rest   : $rest\n"    if $debug;
 my $out="broken";
 
 given ($command) {
-    when (/\!learn/)  { $out = _learn($author, $rest); }
-    when (/\!append/) { $out = _append($author, $rest); }
-    when (/\!forget/) { $out = _forget($author, $rest); }
-    when (/\!lock/) { $out = _lock($author, $rest); }
-    when (/\!unlock/) { $out = _unlock($author, $rest); }
-    when (/\!itest/)  { $out = _itest($author, $rest); }
-    when (/\?/)       { $out = _retrieve($author, $rest); }
-    default           { $out = "Unknown command $command"; }
+    when (/\!learn/)   { $out = _learn($author, $rest); }
+    when (/\!append/)  { $out = _append($author, $rest); }
+    when (/\!forget/)  { $out = _forget($author, $rest); }
+    when (/\!replace/) { $out = _replace($author, $rest); }
+    when (/\!rename/)  { $out = _rename($author, $rest); }
+    when (/\!lock/)    { $out = _lock($author, $rest); }
+    when (/\!unlock/)  { $out = _unlock($author, $rest); }
+    when (/\!itest/)   { $out = _itest($author, $rest); }
+    when (/\?/)        { $out = _retrieve($author, $rest); }
+    default            { $out = "Unknown command $command"; }
 }
 
 print $out;
