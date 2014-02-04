@@ -107,6 +107,50 @@ sub _retrieve {
     return $ret;
 }
 
+sub _rand {
+    my ($author, $all) = @_;                                               
+    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+    my $ret="uh?";
+
+    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+
+    my $res = $dbh->selectall_arrayref("select id,value,meaning from `ledger` order by random() limit 1");
+
+    if ( $res ) {
+        foreach my $row (@$res) {
+	    my ($id, $value, $meaning) = @$row;
+	    $ret = "$value = $meaning";
+        }
+
+        $dbh->do("update `ledger` set hits = hits + 1 where value = \"$value\"");
+
+    }
+    undef($dbh);
+
+    return $ret;
+}
+
+sub _stats {
+    my ($author, $all) = @_;                                               
+    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+    my $ret="uh?";
+
+    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+
+    my $res = $dbh->selectall_arrayref("select coalesce(max(id)+1, 0) from `ledger`");
+
+    if ( $res ) {
+        foreach my $row (@$res) {
+          my ($count) = @$row;
+          $ret = "$count entries";
+        }
+    }
+
+    undef($dbh);
+
+    return $ret;
+}
+
 sub _forget {
     my ($author, $all) = @_;                                               
     my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
@@ -231,7 +275,7 @@ sub _unlock {
 
 # If ran as module, use env var.
 if (exists $ENV{ZBOT_ARGS}) {
-    $request = $ZBOT_ARGS;
+    $request = $ENV{ZBOT_ARGS};
 } else {
     exit(0) if ($#ARGV != 0);
 
@@ -242,7 +286,6 @@ if (exists $ENV{ZBOT_ARGS}) {
 
     print "Encoded: $payload \n" if $debug;
     print "Decoded: $request \n" if $debug;
-
 }
 
 chomp($request);
@@ -264,6 +307,8 @@ given ($command) {
     when (/\!lock/)    { $out = _lock($author, $rest); }
     when (/\!unlock/)  { $out = _unlock($author, $rest); }
     when (/\!itest/)   { $out = _itest($author, $rest); }
+    when (/\!rand/)    { $out = _rand($author, $rest); }
+    when (/\!stats/)   { $out = _stats($author, $rest); }
     when (/\?/)        { $out = _retrieve($author, $rest); }
     default            { $out = "Unknown command $command"; }
 }
