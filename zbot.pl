@@ -171,7 +171,7 @@ sub on_public {
         # Run the module, output to channel.
         my @output=`$modules{$cmd} $bot_arg`;
         foreach (@output) {
-            $irc->yield(privmsg => CHANNEL, $_);
+            $irc->yield(notice => CHANNEL, $_);
         }
     }
 }
@@ -195,7 +195,7 @@ sub cmd_die {
 
 sub cmd_version {
     my ($nick, $channel, $cmd, $bot_arg) = @_ ;
-    $irc->yield(privmsg => CHANNEL, "Version: " . VERSION);
+    $irc->yield(notice => CHANNEL, "Version: " . VERSION);
 }
 
 sub cmd_talk {
@@ -214,27 +214,27 @@ sub cmd_reload {
     my ($nick, $channel, $cmd, $bot_arg) = @_ ;
     return if $users{$nick} < LVL_ADMIN ;
     &confload();
-    $irc->yield(privmsg => CHANNEL, "Module and User configurations reloaded");
+    $irc->yield(notice => CHANNEL, "Module and User configurations reloaded");
 }
 
 sub cmd_ignore {
     my ($nick, $channel, $cmd, $bot_arg) = @_ ;
     return if $users{$nick} < LVL_TECH ;
-    $irc->yield(privmsg => CHANNEL, "Ignoring: $bot_arg");
+    $irc->yield(notice => CHANNEL, "Ignoring: $bot_arg");
     $ignore{$bot_arg} = 1;
 }
 
 sub cmd_unignore {
     my ($nick, $channel, $cmd, $bot_arg) = @_ ;
     return if $users{$nick} < LVL_TECH ;
-    $irc->yield(privmsg => CHANNEL, "Ungnoring: $bot_arg");
+    $irc->yield(notice => CHANNEL, "Ungnoring: $bot_arg");
     delete $ignore{$bot_arg};
 }
 
 sub cmd_igclear {
     my ($nick, $channel, $cmd, $bot_arg) = @_ ;
     return if $users{$nick} < LVL_TECH ;
-    $irc->yield(privmsg => CHANNEL, "Ignore list cleared.");
+    $irc->yield(notice => CHANNEL, "Ignore list cleared.");
     %ignore = ();
 }
 
@@ -245,7 +245,7 @@ sub cmd_iglist {
         $buffer.=" $nick -";
     }
     chop($buffer);
-    $irc->yield(privmsg => CHANNEL, $buffer);
+    $irc->yield(notice => CHANNEL, $buffer);
 }
 
 sub cmd_usrlist {
@@ -256,7 +256,7 @@ sub cmd_usrlist {
         $buffer.=" $nick ($users{$nick}) -";
     }
     chop($buffer);
-    $irc->yield(privmsg => $nick, $buffer);
+    $irc->yield(notice => $nick, $buffer);
 }
 
 sub cmd_modlist {
@@ -266,7 +266,7 @@ sub cmd_modlist {
         $buffer.=" $module -";
     }
     chop($buffer);
-    $irc->yield(privmsg => CHANNEL, $buffer);
+    $irc->yield(notice => CHANNEL, $buffer);
 }
 
 sub cmd_cmdlist {
@@ -276,7 +276,7 @@ sub cmd_cmdlist {
         $buffer.=" $command -";
     }
     chop($buffer);
-    $irc->yield(privmsg => CHANNEL, $buffer);
+    $irc->yield(notice => CHANNEL, $buffer);
 }
 
 # Custom

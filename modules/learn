@@ -12,7 +12,8 @@ use MIME::Base64;
 use feature ":5.10";
 
 my $debug = 0;
-my $dbfile="/usr/apps/data/zbot_linux.db";
+#my $dbfile="/usr/apps/data/zbot_linux.db";
+my $dbfile="/home/dane/wip/poebot/zbot_linux.db";
 my $request;
 
 sub query {
@@ -59,7 +60,7 @@ sub _learn {
         my $res = $dbh->do("insert into `ledger` (value, meaning, author, date) values ('$value', '$meaning', '$author', date('now'))");
         undef($dbh);
         if ( $res ) {
-            return ("Defined $value = $meaning");
+            return ("Defined $value = $meaning");
         } else {
             return ("Unable to define");
         }
@@ -96,7 +97,7 @@ sub _retrieve {
     if ( $res ) {
         foreach my $row (@$res) {
 	    my ($id, $meaning) = @$row;
-	    $ret = "$value = $meaning";
+	    $ret = "$value = $meaning";
         }
 
         $dbh->do("update `ledger` set hits = hits + 1 where value = \"$value\"");
@@ -119,7 +120,7 @@ sub _rand {
     if ( $res ) {
         foreach my $row (@$res) {
 	    my ($id, $value, $meaning) = @$row;
-	    $ret = "$value = $meaning";
+	    $ret = "$value = $meaning";
         }
 
         $dbh->do("update `ledger` set hits = hits + 1 where value = \"$value\"");
@@ -188,7 +189,7 @@ sub _replace {
         my $meaning=$record{meaning};
         $meaning =~ s/$from/$to/g;
         query("update `ledger` set meaning = \"$meaning\", date=date('now') where value = \"$value\"");
-        $retval .= ("Defined $value = $meaning");
+        $retval .= ("Defined $value = $meaning");
     } else {
         $retval .= "[404]";
     }
