@@ -2,7 +2,7 @@
 #
 # Daniel Engel 2011
 #
-#
+ 
 use warnings;
 use strict;
 
@@ -11,12 +11,15 @@ use DBI;
 use MIME::Base64;
 use feature ":5.10";
 
+# CONFIGURATION
+
 my $debug = 0;
-my $limit = 10;
+my $limit = 12;
 my $maxdef = 100;
 #my $dbfile="/usr/apps/data/zbot_linux.db";
 my $dbfile="/home/dane/wip/poebot/zbot_linux.db";
-my $request;
+
+# IMPLEMENTATION
 
 sub query {
   my $query = shift;
@@ -130,10 +133,43 @@ sub _last {
     }
   }
 
-
   my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
 
   my $res = $dbh->selectall_arrayref("select value from `ledger` $clause order by id desc limit $limit");
+
+  if ( $res ) {
+    foreach my $row (@$res) {
+      my ($value) = @$row;
+      push(@list,$value);
+    }
+    if ( @list ) {
+      $ret = join " ", @list;
+    }
+  }
+
+  undef($dbh);
+
+  return $ret;
+}
+
+sub _top {
+  my ($author, $all) = @_;                                               
+  my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+  my $clause = "";
+  my $ret="uh?";
+  my @list;
+
+  if ($value) {
+    if ($value =~ /^\d+$/) {
+      $limit = $value;
+    } else {
+      $clause = "and author like '%$value%'"
+    }
+  }
+
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+
+  my $res = $dbh->selectall_arrayref("select value from `ledger` where date('now', '-3 month') <= date $clause order by hits desc limit $limit");
 
   if ( $res ) {
     foreach my $row (@$res) {
@@ -315,6 +351,8 @@ sub _unlock {
 # MAIN
 #
 
+my $request;
+
 # If ran as module, use env var.
 if (exists $ENV{ZBOT_ARGS}) {
   $request = $ENV{ZBOT_ARGS};
@@ -352,6 +390,7 @@ given ($command) {
   when (/\!rand/)    { $out = _rand($author, $rest); }
   when (/\!stats/)   { $out = _stats($author, $rest); }
   when (/\!last/)    { $out = _last($author, $rest); }
+  when (/\!top/)     { $out = _top($author, $rest); }
   when (/\?/)        { $out = _retrieve($author, $rest); }
   default            { $out = "Unknown command $command"; }
 }
