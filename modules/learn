@@ -12,270 +12,303 @@ use MIME::Base64;
 use feature ":5.10";
 
 my $debug = 0;
+my $limit = 10;
 my $maxdef = 100;
 #my $dbfile="/usr/apps/data/zbot_linux.db";
 my $dbfile="/home/dane/wip/poebot/zbot_linux.db";
 my $request;
 
 sub query {
-	my $query = shift;
-        my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
-        my $res = $dbh->do($query);
-        undef($dbh);
-	return $res;
+  my $query = shift;
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+  my $res = $dbh->do($query);
+  undef($dbh);
+  return $res;
 }
 
 sub get_record {
-    my $value = shift;
-
-    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
-    my $res = $dbh->selectrow_hashref("select * from `ledger` where value = \"$value\"");
-    return $res;
-
+  my $value = shift;
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+  my $res = $dbh->selectrow_hashref("select * from `ledger` where value = \"$value\"");
+  return $res;
 }
 
 sub _itest {                                                                                            
-    my ($author, $all) = @_;                                               
-    my ($value) = split /[:\s]+/, $all, 1;                                               
-    my $retval="[$value]";
+  my ($author, $all) = @_;                                               
+  my ($value) = split /[:\s]+/, $all, 1;                                               
+  my $retval="[$value]";
 
-    my $ref = get_record($value);
-    if ($ref ne undef) {
-        my %record = %{$ref};
-        foreach my $key ( keys(%record) ) {
-	    $retval .= "[$key = $record{$key}]";
-        }
-    } else {
-	    $retval .= "[404]";
+  my $ref = get_record($value);
+  if ($ref ne undef) {
+    my %record = %{$ref};
+    foreach my $key ( keys(%record) ) {
+      $retval .= "[$key = $record{$key}]";
     }
+  } else {
+    $retval .= "[404]";
+  }
 
-    return $retval;
+  return $retval;
 
 }
 
 sub _learn {                                                                                            
-    my ($author, $all) = @_;                                               
-    my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
-    if (( $value ) and ( $meaning )) {
-        my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","",{ PrintError => 0, RaiseError => 0, PrintWarn => 0, ShowErrorStatement =>0 });
-        my $res=0;
-        my $lcv=1;
-        my $term=$value;
-        while (! $res) {
-          $res = $dbh->do("insert into `ledger` (value, meaning, author, date) values ('$value', '$meaning', '$author', date('now'))");
-          $value = $term . $lcv++ if (! $res);
-          last if ($lcv > $maxdef)
-        }
-        undef($dbh);
-        if ( $res ) {
-            return ("Defined $value = $meaning");
-        } else {
-            return ("Unable to define");
-        }
+  my ($author, $all) = @_;                                               
+  my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
+  if (( $value ) and ( $meaning )) {
+    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","",{ PrintError => 0, RaiseError => 0, PrintWarn => 0, ShowErrorStatement =>0 });
+    my $res=0;
+    my $lcv=1;
+    my $term=$value;
+    while (! $res) {
+      $res = $dbh->do("insert into `ledger` (value, meaning, author, date) values ('$value', '$meaning', '$author', date('now'))");
+      $value = $term . $lcv++ if (! $res);
+      last if ($lcv > $maxdef)
     }
-    return undef;
+    undef($dbh);
+    if ( $res ) {
+      return ("Defined $value = $meaning");
+    } else {
+      return ("Unable to define");
+    }
+  }
+  return undef;
 }
 
 sub _append {                                                                                            
-    my ($author, $all) = @_;                                               
-    my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
-    if (( $value ) and ( $meaning )) {
-        my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
-        my $res = $dbh->do("update `ledger` set meaning=(meaning || ' $meaning'\), date=date('now') where value='$value'");
-        undef($dbh);
-        if ( $res ) {
-            my $ref = get_record($value);
-            return ("Defined $value = $ref->{meaning} $meaning");
-        } else {
-            return ("Unable to define");
-        }
+  my ($author, $all) = @_;                                               
+  my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
+  if (( $value ) and ( $meaning )) {
+    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+    my $res = $dbh->do("update `ledger` set meaning=(meaning || ' $meaning'\), date=date('now') where value='$value'");
+    undef($dbh);
+    if ( $res ) {
+      my $ref = get_record($value);
+      return ("Defined $value = $ref->{meaning} $meaning");
+    } else {
+      return ("Unable to define");
     }
-    return undef;
+  }
+  return undef;
 }
 
 sub _retrieve {
-    my ($author, $all) = @_;                                               
-    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
-    my $ret="uh?";
+  my ($author, $all) = @_;                                               
+  my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+  my $ret="uh?";
 
-    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
 
-    my $res = $dbh->selectall_arrayref("select id,meaning from `ledger` where value = \"$value\"");
+  my $res = $dbh->selectall_arrayref("select id,meaning from `ledger` where value = \"$value\"");
 
-    if ( $res ) {
-        foreach my $row (@$res) {
-	    my ($id, $meaning) = @$row;
-	    $ret = "$value = $meaning";
-        }
-
-        $dbh->do("update `ledger` set hits = hits + 1 where value = \"$value\"");
-
+  if ( $res ) {
+    foreach my $row (@$res) {
+      my ($id, $meaning) = @$row;
+      $ret = "$value = $meaning";
     }
-    undef($dbh);
 
-    return $ret;
+    $dbh->do("update `ledger` set hits = hits + 1 where value = \"$value\"");
+
+  }
+  undef($dbh);
+
+  return $ret;
+}
+
+sub _last {
+  my ($author, $all) = @_;                                               
+  my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+  my $clause = "";
+  my $ret="uh?";
+  my @list;
+
+  if ($value) {
+    if ($value =~ /^\d+$/) {
+      $limit = $value;
+    } else {
+      $clause = "where author like '%$value%'"
+    }
+  }
+
+
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+
+  my $res = $dbh->selectall_arrayref("select value from `ledger` $clause order by id desc limit $limit");
+
+  if ( $res ) {
+    foreach my $row (@$res) {
+      my ($value) = @$row;
+      push(@list,$value);
+    }
+    if ( @list ) {
+      $ret = join " ", @list;
+    }
+  }
+
+  undef($dbh);
+
+  return $ret;
 }
 
 sub _rand {
-    my ($author, $all) = @_;                                               
-    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
-    my $ret="uh?";
+  my ($author, $all) = @_;                                               
+  my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+  my $ret="uh?";
 
-    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
 
-    my $res = $dbh->selectall_arrayref("select id,value,meaning from `ledger` order by random() limit 1");
+  my $res = $dbh->selectall_arrayref("select id,value,meaning from `ledger` order by random() limit 1");
 
-    if ( $res ) {
-        foreach my $row (@$res) {
-	    my ($id, $value, $meaning) = @$row;
-	    $ret = "$value = $meaning";
-        }
-
-        $dbh->do("update `ledger` set hits = hits + 1 where value = \"$value\"");
-
+  if ( $res ) {
+    foreach my $row (@$res) {
+      my ($id, $value, $meaning) = @$row;
+      $ret = "$value = $meaning";
     }
-    undef($dbh);
 
-    return $ret;
+    $dbh->do("update `ledger` set hits = hits + 1 where value = \"$value\"");
+
+  }
+  undef($dbh);
+
+  return $ret;
 }
 
 sub _stats {
-    my ($author, $all) = @_;                                               
-    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
-    my $ret="uh?";
+  my ($author, $all) = @_;                                               
+  my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+  my $ret="uh?";
 
-    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
 
-    my $res = $dbh->selectall_arrayref("select coalesce(max(id)+1, 0) from `ledger`");
+  my $res = $dbh->selectall_arrayref("select coalesce(max(id)+1, 0) from `ledger`");
 
-    if ( $res ) {
-        foreach my $row (@$res) {
-          my ($count) = @$row;
-          $ret = "$count entries";
-        }
+  if ( $res ) {
+    foreach my $row (@$res) {
+      my ($count) = @$row;
+      $ret = "$count entries";
     }
+  }
 
-    undef($dbh);
+  undef($dbh);
 
-    return $ret;
+  return $ret;
 }
 
 sub _forget {
-    my ($author, $all) = @_;                                               
-    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
-    my $ret="uh?";
+  my ($author, $all) = @_;                                               
+  my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+  my $ret="uh?";
 
-    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
 
-    my $res = $dbh->selectall_arrayref("select id,locked from `ledger` where value = \"$value\"");
+  my $res = $dbh->selectall_arrayref("select id,locked from `ledger` where value = \"$value\"");
 
-    if ( $res ) {
-        foreach my $row (@$res) {
-	    my ($id, $locked) = @$row;
-	    if ($locked) {
-		    $ret = "Unable to delete, record locked!";
-	    } else {
-		    $dbh->do("delete from `ledger` where value = \"$value\"");
-		    $ret = "Record deleted!";
+  if ( $res ) {
+    foreach my $row (@$res) {
+      my ($id, $locked) = @$row;
+      if ($locked) {
+        $ret = "Unable to delete, record locked!";
+      } else {
+        $dbh->do("delete from `ledger` where value = \"$value\"");
+        $ret = "Record deleted!";
 
-	    }
-        }
+      }
     }
-    undef($dbh);
+  }
+  undef($dbh);
 
-    return $ret;
+  return $ret;
 }
 
 sub _replace {
-    my ($author, $all) = @_;                                               
-    my ($value, $from, $to) = split /[:\s]+/, $all, 3;                                               
+  my ($author, $all) = @_;                                               
+  my ($value, $from, $to) = split /[:\s]+/, $all, 3;                                               
 
-    my $retval = "";
-    my $ref = get_record($value);
-    if ($ref ne undef) {
-        my %record = %{$ref};
-        my $meaning=$record{meaning};
-        $meaning =~ s/$from/$to/g;
-        query("update `ledger` set meaning = \"$meaning\", date=date('now') where value = \"$value\"");
-        $retval .= ("Defined $value = $meaning");
-    } else {
-        $retval .= "[404]";
-    }
+  my $retval = "";
+  my $ref = get_record($value);
+  if ($ref ne undef) {
+    my %record = %{$ref};
+    my $meaning=$record{meaning};
+    $meaning =~ s/$from/$to/g;
+    query("update `ledger` set meaning = \"$meaning\", date=date('now') where value = \"$value\"");
+    $retval .= ("Defined $value = $meaning");
+  } else {
+    $retval .= "[404]";
+  }
 
-    return $retval;
+  return $retval;
 }
 
 sub _rename {
-    my ($author, $all) = @_;                                               
-    my ($value, $nvalue) = split /[:\s]+/, $all, 2;                                               
+  my ($author, $all) = @_;                                               
+  my ($value, $nvalue) = split /[:\s]+/, $all, 2;                                               
 
-    my $retval = "";
-    my $rif = get_record($value);
-    if (defined($rif)) {
-        my $ref = get_record($nvalue);
-        if (defined($ref)) {
-            $retval .= "Already exists $nvalue";
-        } else {
-            query("update `ledger` set value = \"$nvalue\", date=date('now') where value = \"$value\"");
-            $retval .= ("Defined $nvalue = $rif->{meaning}");
-        }
+  my $retval = "";
+  my $rif = get_record($value);
+  if (defined($rif)) {
+    my $ref = get_record($nvalue);
+    if (defined($ref)) {
+      $retval .= "Already exists $nvalue";
     } else {
-        $retval .= "[404]";
+      query("update `ledger` set value = \"$nvalue\", date=date('now') where value = \"$value\"");
+      $retval .= ("Defined $nvalue = $rif->{meaning}");
     }
+  } else {
+    $retval .= "[404]";
+  }
 
-    return $retval;
+  return $retval;
 }
 
 sub _lock {
-    my ($author, $all) = @_;                                               
-    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
-    my $ret="uh?";
+  my ($author, $all) = @_;                                               
+  my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+  my $ret="uh?";
 
-    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
 
-    my $res = $dbh->selectall_arrayref("select id,locked from `ledger` where value = \"$value\"");
+  my $res = $dbh->selectall_arrayref("select id,locked from `ledger` where value = \"$value\"");
 
-    if ( $res ) {
-        foreach my $row (@$res) {
-	    my ($id, $locked) = @$row;
-	    if ($locked) {
-		    $ret = "Already locked!";
-	    } else {
-		    $dbh->do("update `ledger` set locked = 1 where value = \"$value\"");
-		    $ret = "Record locked!";
-
-	    }
-        }
+  if ( $res ) {
+    foreach my $row (@$res) {
+      my ($id, $locked) = @$row;
+      if ($locked) {
+        $ret = "Already locked!";
+      } else {
+        $dbh->do("update `ledger` set locked = 1 where value = \"$value\"");
+        $ret = "Record locked!";
+      }
     }
-    undef($dbh);
+  }
+  undef($dbh);
 
-    return $ret;
+  return $ret;
 }
 
 sub _unlock {
-    my ($author, $all) = @_;                                               
-    my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
-    my $ret="uh?";
+  my ($author, $all) = @_;                                               
+  my ($value, $rest) = split /[:\s]+/, $all, 2;                                               
+  my $ret="uh?";
 
-    my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
+  my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
 
-    my $res = $dbh->selectall_arrayref("select id,locked from `ledger` where value = \"$value\"");
+  my $res = $dbh->selectall_arrayref("select id,locked from `ledger` where value = \"$value\"");
 
-    if ( $res ) {
-        foreach my $row (@$res) {
-	    my ($id, $locked) = @$row;
-	    if ($locked) {
-		    $dbh->do("update `ledger` set locked = 0 where value = \"$value\"");
-		    $ret = "Record unlocked!";
-	    } else {
-		    $ret = "Not locked!";
+  if ( $res ) {
+    foreach my $row (@$res) {
+      my ($id, $locked) = @$row;
+      if ($locked) {
+        $dbh->do("update `ledger` set locked = 0 where value = \"$value\"");
+        $ret = "Record unlocked!";
+      } else {
+        $ret = "Not locked!";
 
-	    }
-        }
+      }
     }
-    undef($dbh);
+  }
+  undef($dbh);
 
-    return $ret;
+  return $ret;
 }
 
 #
@@ -284,17 +317,17 @@ sub _unlock {
 
 # If ran as module, use env var.
 if (exists $ENV{ZBOT_ARGS}) {
-    $request = $ENV{ZBOT_ARGS};
+  $request = $ENV{ZBOT_ARGS};
 } else {
-    exit(0) if ($#ARGV != 0);
+  exit(0) if ($#ARGV != 0);
 
-    my $payload = $ARGV[0];
-    chomp($payload);
+  my $payload = $ARGV[0];
+  chomp($payload);
 
-    $request = decode_base64($payload);
+  $request = decode_base64($payload);
 
-    print "Encoded: $payload \n" if $debug;
-    print "Decoded: $request \n" if $debug;
+  print "Encoded: $payload \n" if $debug;
+  print "Decoded: $request \n" if $debug;
 }
 
 chomp($request);
@@ -308,18 +341,19 @@ print "Rest   : $rest\n"    if $debug;
 my $out="broken";
 
 given ($command) {
-    when (/\!learn/)   { $out = _learn($author, $rest); }
-    when (/\!append/)  { $out = _append($author, $rest); }
-    when (/\!forget/)  { $out = _forget($author, $rest); }
-    when (/\!replace/) { $out = _replace($author, $rest); }
-    when (/\!rename/)  { $out = _rename($author, $rest); }
-    when (/\!lock/)    { $out = _lock($author, $rest); }
-    when (/\!unlock/)  { $out = _unlock($author, $rest); }
-    when (/\!itest/)   { $out = _itest($author, $rest); }
-    when (/\!rand/)    { $out = _rand($author, $rest); }
-    when (/\!stats/)   { $out = _stats($author, $rest); }
-    when (/\?/)        { $out = _retrieve($author, $rest); }
-    default            { $out = "Unknown command $command"; }
+  when (/\!learn/)   { $out = _learn($author, $rest); }
+  when (/\!append/)  { $out = _append($author, $rest); }
+  when (/\!forget/)  { $out = _forget($author, $rest); }
+  when (/\!replace/) { $out = _replace($author, $rest); }
+  when (/\!rename/)  { $out = _rename($author, $rest); }
+  when (/\!lock/)    { $out = _lock($author, $rest); }
+  when (/\!unlock/)  { $out = _unlock($author, $rest); }
+  when (/\!itest/)   { $out = _itest($author, $rest); }
+  when (/\!rand/)    { $out = _rand($author, $rest); }
+  when (/\!stats/)   { $out = _stats($author, $rest); }
+  when (/\!last/)    { $out = _last($author, $rest); }
+  when (/\?/)        { $out = _retrieve($author, $rest); }
+  default            { $out = "Unknown command $command"; }
 }
 
 print $out;
