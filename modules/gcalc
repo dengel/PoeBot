@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#
+# Requires:
+# http://cli-calc.googlecode.com/svn/trunk/calc
+
+/usr/apps/bin/gcalc -q -e "$*" | awk '{print $1 " " $2}'

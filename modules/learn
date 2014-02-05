@@ -36,7 +36,7 @@ sub get_record {
   return $res;
 }
 
-sub _itest {                                                                                            
+sub _record {                                                                                            
   my ($author, $all) = @_;                                               
   my ($value) = split /[:\s]+/, $all, 1;                                               
   my $retval="[$value]";
@@ -386,7 +386,7 @@ given ($command) {
   when (/\!rename/)  { $out = _rename($author, $rest); }
   when (/\!lock/)    { $out = _lock($author, $rest); }
   when (/\!unlock/)  { $out = _unlock($author, $rest); }
-  when (/\!itest/)   { $out = _itest($author, $rest); }
+  when (/\!record/)  { $out = _record($author, $rest); }
   when (/\!rand/)    { $out = _rand($author, $rest); }
   when (/\!stats/)   { $out = _stats($author, $rest); }
   when (/\!last/)    { $out = _last($author, $rest); }
