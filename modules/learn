@@ -12,6 +12,7 @@ use MIME::Base64;
 use feature ":5.10";
 
 my $debug = 0;
+my $maxdef = 100;
 #my $dbfile="/usr/apps/data/zbot_linux.db";
 my $dbfile="/home/dane/wip/poebot/zbot_linux.db";
 my $request;
@@ -56,8 +57,15 @@ sub _learn {
     my ($author, $all) = @_;                                               
     my ($value, $meaning) = split /[:\s]+/, $all, 2;                                               
     if (( $value ) and ( $meaning )) {
-        my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","");
-        my $res = $dbh->do("insert into `ledger` (value, meaning, author, date) values ('$value', '$meaning', '$author', date('now'))");
+        my $dbh = DBI->connect("dbi:SQLite:dbname=".$dbfile,"","",{ PrintError => 0, RaiseError => 0, PrintWarn => 0, ShowErrorStatement =>0 });
+        my $res=0;
+        my $lcv=1;
+        my $term=$value;
+        while (! $res) {
+          $res = $dbh->do("insert into `ledger` (value, meaning, author, date) values ('$value', '$meaning', '$author', date('now'))");
+          $value = $term . $lcv++ if (! $res);
+          last if ($lcv > $maxdef)
+        }
         undef($dbh);
         if ( $res ) {
             return ("Defined $value = $meaning");
